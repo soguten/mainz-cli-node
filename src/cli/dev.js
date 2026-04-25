@@ -1,0 +1,328 @@
+import { spawn } from "node:child_process";
+import {
+    mkdtemp,
+    readFile,
+    readdir,
+    rm,
+    writeFile,
+} from "node:fs/promises";
+import process from "node:process";
+import { extname, isAbsolute, resolve } from "node:path";
+import { loadProjectConfig, resolveRequiredTarget } from "./project-config.js";
+
+export async function runDevCommand(args) {
+    const options = parseDevOptions(args);
+    const plan = await resolveNodeDevServerPlan(options);
+
+    console.log(
+        `[mainz] Starting dev server for target "${plan.target.name}" using config ${plan.configPath}`,
+    );
+
+    const tempDir = await mkdtemp(resolve(plan.cwd, ".mainz-vite-"));
+    const viteConfigPath = resolve(tempDir, `vite.config.${plan.target.name}.generated.mjs`);
+
+    try {
+        await writeFile(viteConfigPath, plan.viteConfigSource, "utf8");
+        return await runViteDevServer({
+            cwd: plan.cwd,
+            viteConfigPath,
+            host: options.host,
+            port: options.port,
+        });
+    } finally {
+        await rm(tempDir, { recursive: true, force: true });
+    }
+}
+
+export async function resolveNodeDevServerPlan(options) {
+    const cwd = process.cwd();
+    const loadedConfig = await loadProjectConfig(options.configPath);
+    if (loadedConfig.config.runtime && loadedConfig.config.runtime !== "node") {
+        throw new Error(
+            `This CLI package only supports runtime "node". Project runtime is "${loadedConfig.config.runtime}".`,
+        );
+    }
+
+    const target = resolveRequiredTarget(loadedConfig.config, options.target, "dev");
+    const targetMetadata = await resolveTargetDevMetadata(cwd, target);
+
+    return {
+        cwd,
+        configPath: loadedConfig.path,
+        target,
+        viteConfigSource: renderGeneratedViteConfigModule({
+            root: normalizePathSlashes(resolve(cwd, target.rootDir)),
+            outDir: normalizePathSlashes(resolve(cwd, target.outDir)),
+            appType: targetMetadata.navigationMode === "spa" ? "spa" : "mpa",
+            base: "/",
+            aliases: resolveTargetAliases(cwd, target),
+            define: {
+                __MAINZ_RENDER_MODE__: targetMetadata.renderMode,
+                __MAINZ_NAVIGATION_MODE__: targetMetadata.navigationMode,
+                __MAINZ_TARGET_NAME__: target.name,
+                __MAINZ_BASE_PATH__: "/",
+                __MAINZ_APP_LOCALES__: [],
+                __MAINZ_DEFAULT_LOCALE__: undefined,
+                __MAINZ_LOCALE_PREFIX__: "except-default",
+                __MAINZ_SITE_URL__: undefined,
+                ...target.vite?.define,
+            },
+        }),
+    };
+}
+
+function parseDevOptions(args) {
+    const options = {
+        target: undefined,
+        host: undefined,
+        port: undefined,
+        configPath: "mainz.config.ts",
+    };
+
+    for (let index = 0; index < args.length; index += 1) {
+        const current = args[index];
+
+        if (current === "--target") {
+            options.target = readOptionValue(current, args[index + 1]);
+            index += 1;
+            continue;
+        }
+
+        if (current === "--host") {
+            const nextValue = args[index + 1];
+            if (!nextValue || nextValue.startsWith("--")) {
+                options.host = true;
+                continue;
+            }
+
+            options.host = nextValue;
+            index += 1;
+            continue;
+        }
+
+        if (current === "--port") {
+            const nextValue = args[index + 1];
+            const parsedPort = Number.parseInt(nextValue ?? "", 10);
+            if (!Number.isInteger(parsedPort) || parsedPort <= 0) {
+                throw new Error(`Invalid --port value "${nextValue ?? ""}".`);
+            }
+
+            options.port = parsedPort;
+            index += 1;
+            continue;
+        }
+
+        if (current === "--config") {
+            options.configPath = readOptionValue(current, args[index + 1]);
+            index += 1;
+            continue;
+        }
+
+        if (current === "--runtime") {
+            const runtime = readOptionValue(current, args[index + 1]);
+            if (runtime !== "node") {
+                throw new Error(
+                    `This CLI package only supports runtime "node". Received "${runtime}".`,
+                );
+            }
+
+            index += 1;
+            continue;
+        }
+
+        throw new Error(`Unknown option "${current}".`);
+    }
+
+    return options;
+}
+
+async function resolveTargetDevMetadata(cwd, target) {
+    if (typeof target.rootDir !== "string" || !target.rootDir.trim()) {
+        throw new Error(`Target "${target.name}" must define "rootDir" for "mainz dev".`);
+    }
+
+    if (typeof target.appFile !== "string" || !target.appFile.trim()) {
+        throw new Error(`Target "${target.name}" must define "appFile" for "mainz dev".`);
+    }
+
+    if (typeof target.outDir !== "string" || !target.outDir.trim()) {
+        throw new Error(`Target "${target.name}" must define "outDir" for "mainz dev".`);
+    }
+
+    const absoluteAppFile = resolve(cwd, target.appFile);
+    const appSource = await readFile(absoluteAppFile, "utf8");
+    const navigationMatch = appSource.match(/\bnavigation\s*:\s*["'](spa|mpa|enhanced-mpa)["']/);
+
+    return {
+        navigationMode: navigationMatch?.[1] ?? "spa",
+        renderMode: await inferRenderMode(resolve(cwd, target.rootDir)),
+    };
+}
+
+async function inferRenderMode(rootDir) {
+    const srcDir = resolve(rootDir, "src");
+    let found = "csr";
+
+    for await (const filePath of walkSourceFiles(srcDir)) {
+        const source = await readFile(filePath, "utf8");
+        if (source.includes('@RenderMode("ssr")') || source.includes("@RenderMode('ssr')")) {
+            return "ssr";
+        }
+
+        if (source.includes('@RenderMode("ssg")') || source.includes("@RenderMode('ssg')")) {
+            found = "ssg";
+        }
+    }
+
+    return found;
+}
+
+async function* walkSourceFiles(directoryPath) {
+    for (const entry of await readdir(directoryPath, { withFileTypes: true })) {
+        const entryPath = resolve(directoryPath, entry.name);
+        if (entry.isDirectory()) {
+            yield* walkSourceFiles(entryPath);
+            continue;
+        }
+
+        const extension = extname(entry.name);
+        if (extension === ".ts" || extension === ".tsx" || extension === ".js" || extension === ".jsx") {
+            yield entryPath;
+        }
+    }
+}
+
+function resolveTargetAliases(cwd, target) {
+    const alias = target.vite?.alias;
+    if (!alias) {
+        return [];
+    }
+
+    if (Array.isArray(alias)) {
+        return alias.map((entry) => ({
+            find: entry.find,
+            replacement: normalizeAliasReplacement(cwd, entry.replacement),
+        }));
+    }
+
+    return Object.entries(alias).map(([find, replacement]) => ({
+        find,
+        replacement: normalizeAliasReplacement(cwd, replacement),
+    }));
+}
+
+function normalizeAliasReplacement(cwd, replacement) {
+    if (
+        replacement.startsWith(".") || replacement.startsWith("/") ||
+        replacement.startsWith("\\") || isAbsolute(replacement)
+    ) {
+        return normalizePathSlashes(resolve(cwd, replacement));
+    }
+
+    return replacement;
+}
+
+function renderGeneratedViteConfigModule(config) {
+    const aliases = config.aliases.map((alias) =>
+        `{ find: ${JSON.stringify(alias.find)}, replacement: ${JSON.stringify(alias.replacement)} }`
+    );
+
+    return [
+        `import { defineConfig } from "vite";`,
+        ``,
+        `export default defineConfig({`,
+        `    appType: ${JSON.stringify(config.appType)},`,
+        `    base: ${JSON.stringify(config.base)},`,
+        `    resolve: {`,
+        `        alias: [`,
+        ...aliases.map((alias) => `            ${alias},`),
+        `        ],`,
+        `    },`,
+        `    root: ${JSON.stringify(config.root)},`,
+        `    build: {`,
+        `        outDir: ${JSON.stringify(config.outDir)},`,
+        `        emptyOutDir: true,`,
+        `        sourcemap: true,`,
+        `    },`,
+        `    define: ${renderObjectLiteral(config.define, 4)},`,
+        `    esbuild: {`,
+        `        keepNames: true,`,
+        `        jsx: "automatic",`,
+        `        jsxImportSource: "mainz",`,
+        `    },`,
+        `});`,
+        ``,
+    ].join("\n");
+}
+
+function renderObjectLiteral(record, indent) {
+    const entries = Object.entries(record);
+    if (entries.length === 0) {
+        return "{}";
+    }
+
+    const padding = " ".repeat(indent);
+    const entryPadding = " ".repeat(indent + 4);
+
+    return [
+        `{`,
+        ...entries.map(([key, value]) => `${entryPadding}${JSON.stringify(key)}: ${JSON.stringify(value)},`),
+        `${padding}}`,
+    ].join("\n");
+}
+
+async function runViteDevServer(options) {
+    const command = resolveNpxCommand();
+    const args = [
+        "vite",
+        "--config",
+        options.viteConfigPath,
+    ];
+
+    if (options.host !== undefined) {
+        args.push("--host");
+        if (options.host !== true) {
+            args.push(options.host);
+        }
+    }
+
+    if (options.port !== undefined) {
+        args.push("--port", String(options.port));
+    }
+
+    const exitCode = await new Promise((resolvePromise, reject) => {
+        const child = spawn(command, args, {
+            cwd: options.cwd,
+            stdio: "inherit",
+            env: process.env,
+        });
+
+        child.once("error", reject);
+        child.once("exit", (code, signal) => {
+            if (signal) {
+                resolvePromise(1);
+                return;
+            }
+
+            resolvePromise(code ?? 1);
+        });
+    });
+
+    return exitCode;
+}
+
+function resolveNpxCommand() {
+    return process.platform === "win32" ? "npx.cmd" : "npx";
+}
+
+function readOptionValue(option, value) {
+    if (!value?.trim()) {
+        throw new Error(`Option "${option}" requires a value.`);
+    }
+
+    return value;
+}
+
+function normalizePathSlashes(path) {
+    return path.replaceAll("\\", "/");
+}
