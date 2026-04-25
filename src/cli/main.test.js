@@ -190,8 +190,9 @@ test("cli: dev should build a Vite plan for the generated routed app", async () 
 
         assert.equal(plan.target.name, "site");
         assert.match(plan.viteConfigSource, /appType: "mpa"/);
-        assert.match(plan.viteConfigSource, /"__MAINZ_RENDER_MODE__": "ssg"/);
-        assert.match(plan.viteConfigSource, /"__MAINZ_NAVIGATION_MODE__": "enhanced-mpa"/);
+        assert.match(plan.viteConfigSource, /"__MAINZ_RENDER_MODE__": "\\"ssg\\""/);
+        assert.match(plan.viteConfigSource, /"__MAINZ_NAVIGATION_MODE__": "\\"enhanced-mpa\\""/);
+        assert.match(plan.viteConfigSource, /"__MAINZ_TARGET_NAME__": "\\"site\\""/);
         assert.match(plan.viteConfigSource, /root: ".*\/site"/);
     } finally {
         process.chdir(previousCwd);
