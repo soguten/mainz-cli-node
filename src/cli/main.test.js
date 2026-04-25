@@ -104,6 +104,13 @@ test("cli: init should reject unsupported runtimes", async () => {
     );
 });
 
+test("cli: should reject commands that are not implemented locally", async () => {
+    await assert.rejects(
+        () => main(["build", "--target", "site"]),
+        /Command "build" is not implemented in @mainzjs\/cli-node yet/,
+    );
+});
+
 test("cli: app create should scaffold a routed app and register the target", async () => {
     const previousCwd = process.cwd();
     const cwd = await mkdtemp(resolve(tmpdir(), "mainz-cli-node-app-"));

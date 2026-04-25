@@ -12,9 +12,6 @@ Current ownership in this repository:
 - `mainz app create` for Node projects
 - `mainz dev` for Node projects
 
-Other commands are still delegated to `@mainz/cli-node` until their Node-specific behavior is
-moved here.
-
 The repository also contains the first Node-specific template prototype under `templates/`. The
 direction here is intentionally simple:
 

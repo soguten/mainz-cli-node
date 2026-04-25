@@ -2,7 +2,6 @@ import { access, readFile } from "node:fs/promises";
 import process from "node:process";
 import { basename, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { main as upstreamMain } from "@mainz/cli-node";
 import { runDevCommand } from "./dev.js";
 import { materializeTemplate } from "../templates/index.js";
 import { resolveBuiltInTemplateRoot } from "../templates/load-template.js";
@@ -31,8 +30,10 @@ export async function main(args = process.argv.slice(2)) {
         return await runDevCommand(commandArgs.slice(1));
     }
 
-    assertSupportedNodeRuntime(leadingRuntime);
-    return await upstreamMain(commandArgs, { hostRuntime: "node" });
+    throw new Error(
+        `Command "${command}" is not implemented in @mainzjs/cli-node yet. ` +
+            `This package currently supports "init", "app create", and "dev".`,
+    );
 }
 
 async function runInitCommand(args, leadingRuntime) {
@@ -79,7 +80,11 @@ async function runAppCommand(args) {
         return;
     }
 
-    return await upstreamMain(["app", action, ...rest], { hostRuntime: "node" });
+    const commandName = action ? `app ${action}` : "app";
+    throw new Error(
+        `Command "${commandName}" is not implemented in @mainzjs/cli-node yet. ` +
+            `This package currently supports "app create" only.`,
+    );
 }
 
 async function runAppCreateCommand(args) {
@@ -256,21 +261,16 @@ async function resolveDefaultMainzSpecifier(runtime = "node") {
     const packageJson = JSON.parse(
         await readFile(packageJsonPath, "utf8"),
     );
-    const dependency = packageJson.dependencies?.["@mainz/cli-node"];
-    if (typeof dependency !== "string") {
-        throw new Error('Could not resolve the pinned "@mainz/cli-node" dependency.');
-    }
-
-    const match = dependency.match(/^npm:@jsr\/mainz__cli-node(@.+)$/);
-    if (!match) {
-        throw new Error(`Unsupported "@mainz/cli-node" dependency "${dependency}".`);
+    const version = packageJson.version;
+    if (typeof version !== "string" || !version.trim()) {
+        throw new Error('Could not resolve the current "@mainzjs/cli-node" package version.');
     }
 
     if (runtime === "deno") {
-        return `jsr:@mainz/mainz${match[1]}`;
+        return `jsr:@mainz/mainz@${version}`;
     }
 
-    return `npm:@jsr/mainz__mainz${match[1]}`;
+    return `npm:@jsr/mainz__mainz@${version}`;
 }
 
 async function assertNodeProjectConfig(configPath) {
@@ -441,11 +441,9 @@ function printHelp() {
             "  mainz init [--runtime <node|deno>] [--mainz <specifier>]",
             "  mainz app create [<name>|--name <name>] [--type <routed|root>] [--root <path>] [--out-dir <path>] [--navigation <spa|mpa|enhanced-mpa>] [--config <path>]",
             "  mainz dev --target <name> [--host [host]] [--port <port>] [--config <path>]",
-            "  mainz <other-command> [...args]",
             "",
             "Notes:",
             "  This package owns the Node-hosted init, app create, and dev flows.",
-            "  Other commands are currently delegated to @mainz/cli-node.",
         ].join("\n"),
     );
 }
