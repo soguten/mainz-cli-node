@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { main } from "./main.js";
-import { resolveNodeDevServerPlan, resolveViteDevInvocation } from "./dev.js";
+import { prepareViteWorkspace, resolveNodeDevServerPlan, resolveViteDevInvocation } from "./dev.js";
 
 test("cli: init should create a node project from the built-in template", async () => {
     const previousCwd = process.cwd();
@@ -35,6 +35,8 @@ test("cli: init should create a node project from the built-in template", async 
 
         const tsconfig = await readFile(resolve(cwd, "tsconfig.json"), "utf8");
         assert.match(tsconfig, /"jsxImportSource": "mainz"/);
+        assert.match(tsconfig, /"experimentalDecorators": true/);
+        assert.match(tsconfig, /"useDefineForClassFields": false/);
     } finally {
         process.chdir(previousCwd);
         await rm(cwd, { recursive: true, force: true });
@@ -218,4 +220,33 @@ test("cli: dev should use a Windows-safe npx invocation", async () => {
 
     assert.equal(invocation.command, "npx");
     assert.deepEqual(invocation.args, ["vite", "--version"]);
+});
+
+test("cli: dev should prepare a deterministic vite workspace and remove legacy ones", async () => {
+    const cwd = await mkdtemp(resolve(tmpdir(), "mainz-cli-node-vite-workspace-"));
+
+    try {
+        await mkdir(resolve(cwd, ".mainz-vite-old-a"));
+        await mkdir(resolve(cwd, ".mainz-vite-old-b"));
+        await mkdir(resolve(cwd, ".mainz-vite"));
+
+        const workspace = await prepareViteWorkspace(
+            cwd,
+            "site",
+            "export default {};",
+        );
+
+        assert.equal(workspace.directoryPath, resolve(cwd, "node_modules", ".mainz", "vite"));
+        assert.equal(
+            workspace.viteConfigPath,
+            resolve(cwd, "node_modules", ".mainz", "vite", "vite.config.site.generated.mjs"),
+        );
+        assert.match(await readFile(workspace.viteConfigPath, "utf8"), /export default \{\};/);
+
+        await assert.rejects(() => stat(resolve(cwd, ".mainz-vite-old-a")));
+        await assert.rejects(() => stat(resolve(cwd, ".mainz-vite-old-b")));
+        await assert.rejects(() => stat(resolve(cwd, ".mainz-vite")));
+    } finally {
+        await rm(cwd, { recursive: true, force: true });
+    }
 });

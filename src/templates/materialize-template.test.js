@@ -30,6 +30,11 @@ test("templates: should instantiate the built-in empty project template", async 
     const packageJson = plan.files.find((file) => file.path === "package.json");
     assert.ok(packageJson);
     assert.match(packageJson.content, /npm:@jsr\/mainz__mainz@0.1.0-alpha.33/);
+
+    const tsconfig = plan.files.find((file) => file.path === "tsconfig.json");
+    assert.ok(tsconfig);
+    assert.match(tsconfig.content, /"experimentalDecorators": true/);
+    assert.match(tsconfig.content, /"useDefineForClassFields": false/);
 });
 
 test("templates: should materialize the built-in empty project template to disk", async () => {

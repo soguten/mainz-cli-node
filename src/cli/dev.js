@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import {
-    mkdtemp,
+    mkdir,
     readFile,
     readdir,
     rm,
@@ -18,20 +18,34 @@ export async function runDevCommand(args) {
         `[mainz] Starting dev server for target "${plan.target.name}" using config ${plan.configPath}`,
     );
 
-    const tempDir = await mkdtemp(resolve(plan.cwd, ".mainz-vite-"));
-    const viteConfigPath = resolve(tempDir, `vite.config.${plan.target.name}.generated.mjs`);
+    const workspace = await prepareViteWorkspace(plan.cwd, plan.target.name, plan.viteConfigSource);
 
     try {
-        await writeFile(viteConfigPath, plan.viteConfigSource, "utf8");
         return await runViteDevServer({
             cwd: plan.cwd,
-            viteConfigPath,
+            viteConfigPath: workspace.viteConfigPath,
             host: options.host,
             port: options.port,
         });
     } finally {
-        await rm(tempDir, { recursive: true, force: true });
+        await rm(workspace.directoryPath, { recursive: true, force: true });
     }
+}
+
+export async function prepareViteWorkspace(cwd, targetName, viteConfigSource) {
+    await removeLegacyViteWorkspaces(cwd);
+
+    const directoryPath = resolve(cwd, "node_modules", ".mainz", "vite");
+    await rm(directoryPath, { recursive: true, force: true });
+    await mkdir(directoryPath, { recursive: true });
+
+    const viteConfigPath = resolve(directoryPath, `vite.config.${targetName}.generated.mjs`);
+    await writeFile(viteConfigPath, viteConfigSource, "utf8");
+
+    return {
+        directoryPath,
+        viteConfigPath,
+    };
 }
 
 export async function resolveNodeDevServerPlan(options) {
@@ -188,6 +202,18 @@ async function* walkSourceFiles(directoryPath) {
         const extension = extname(entry.name);
         if (extension === ".ts" || extension === ".tsx" || extension === ".js" || extension === ".jsx") {
             yield entryPath;
+        }
+    }
+}
+
+async function removeLegacyViteWorkspaces(cwd) {
+    for (const entry of await readdir(cwd, { withFileTypes: true })) {
+        if (!entry.isDirectory()) {
+            continue;
+        }
+
+        if (entry.name === ".mainz-vite" || entry.name.startsWith(".mainz-vite-")) {
+            await rm(resolve(cwd, entry.name), { recursive: true, force: true });
         }
     }
 }
