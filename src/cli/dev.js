@@ -272,26 +272,27 @@ function renderObjectLiteral(record, indent) {
 }
 
 async function runViteDevServer(options) {
-    const command = resolveNpxCommand();
-    const args = [
+    const viteArgs = [
         "vite",
         "--config",
         options.viteConfigPath,
     ];
 
     if (options.host !== undefined) {
-        args.push("--host");
+        viteArgs.push("--host");
         if (options.host !== true) {
-            args.push(options.host);
+            viteArgs.push(options.host);
         }
     }
 
     if (options.port !== undefined) {
-        args.push("--port", String(options.port));
+        viteArgs.push("--port", String(options.port));
     }
 
+    const invocation = resolveViteDevInvocation(viteArgs);
+
     const exitCode = await new Promise((resolvePromise, reject) => {
-        const child = spawn(command, args, {
+        const child = spawn(invocation.command, invocation.args, {
             cwd: options.cwd,
             stdio: "inherit",
             env: process.env,
@@ -311,8 +312,19 @@ async function runViteDevServer(options) {
     return exitCode;
 }
 
-function resolveNpxCommand() {
-    return process.platform === "win32" ? "npx.cmd" : "npx";
+export function resolveViteDevInvocation(viteArgs) {
+    if (process.platform === "win32") {
+        const command = process.env.ComSpec || process.env.COMSPEC || "cmd.exe";
+        return {
+            command,
+            args: ["/d", "/s", "/c", "npx", ...viteArgs],
+        };
+    }
+
+    return {
+        command: "npx",
+        args: viteArgs,
+    };
 }
 
 function readOptionValue(option, value) {

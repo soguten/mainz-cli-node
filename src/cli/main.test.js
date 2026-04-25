@@ -4,7 +4,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { main } from "./main.js";
-import { resolveNodeDevServerPlan } from "./dev.js";
+import { resolveNodeDevServerPlan, resolveViteDevInvocation } from "./dev.js";
 
 test("cli: init should create a node project from the built-in template", async () => {
     const previousCwd = process.cwd();
@@ -204,4 +204,17 @@ test("cli: dev should validate --port values", async () => {
         () => main(["dev", "--target", "site", "--port", "nope"]),
         /Invalid --port value "nope"\./,
     );
+});
+
+test("cli: dev should use a Windows-safe npx invocation", async () => {
+    const invocation = resolveViteDevInvocation(["vite", "--version"]);
+
+    if (process.platform === "win32") {
+        assert.match(invocation.command, /cmd\.exe$/i);
+        assert.deepEqual(invocation.args, ["/d", "/s", "/c", "npx", "vite", "--version"]);
+        return;
+    }
+
+    assert.equal(invocation.command, "npx");
+    assert.deepEqual(invocation.args, ["vite", "--version"]);
 });
