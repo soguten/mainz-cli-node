@@ -39,5 +39,19 @@ jobs:
             exit 1
           fi
 
+      - name: Resolve npm dist-tag
+        id: dist_tag
+        shell: bash
+        run: |
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          if [[ "$PACKAGE_VERSION" == *"-"* ]]; then
+            DIST_TAG="${PACKAGE_VERSION#*-}"
+            DIST_TAG="${DIST_TAG%%.*}"
+          else
+            DIST_TAG="latest"
+          fi
+          echo "dist_tag=${DIST_TAG}" >> "$GITHUB_OUTPUT"
+          echo "Publishing ${PACKAGE_VERSION} with npm dist-tag ${DIST_TAG}"
+
       - name: Publish to npm
-        run: npm publish
+        run: npm publish --tag "${{ steps.dist_tag.outputs.dist_tag }}"

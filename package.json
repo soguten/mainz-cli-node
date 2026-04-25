@@ -5,13 +5,13 @@
     "type": "module",
     "repository": {
         "type": "git",
-        "url": "https://github.com/soguten/mainz-cli-node.git"
+        "url": "git+https://github.com/soguten/mainz-cli-node.git"
     },
     "publishConfig": {
         "access": "public"
     },
     "bin": {
-        "mainz": "./bin/mainz.js"
+        "mainz": "bin/mainz.js"
     },
     "engines": {
         "node": ">=20.19.0"
