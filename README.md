@@ -2,23 +2,8 @@
 
 Node/npm package for the Mainz CLI.
 
-This repository intentionally keeps Node-specific CLI concerns separate from the Deno-first Mainz
-repository.
-
-Current ownership in this repository:
-
-- global `mainz` binary for npm installs
-- `mainz init` for Node and Deno projects
-- `mainz app create` for Node projects
-- `mainz dev` for Node projects
-
-The repository also contains the first Node-specific template prototype under `templates/`. The
-direction here is intentionally simple:
-
-- templates are real files
-- each template has a tiny `template.json`
-- the engine only copies files and replaces `{{token}}` placeholders
-- there is no DSL, no base/runtime layering, and no multi-runtime composition in this repository
+This repository owns the npm-distributed `mainz` binary, `mainz init` for Node and Deno projects,
+`mainz app create`, and `mainz dev`.
 
 ## Quick start
 
