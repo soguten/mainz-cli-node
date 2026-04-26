@@ -5,18 +5,21 @@ import { loadTemplate } from "./load-template.js";
 export async function instantiateTemplate(options) {
     const template = await loadTemplate(options.templateRoot);
     const relativePaths = await collectTemplateFiles(template.filesRoot);
+    const params = options.params ?? {};
 
     return {
-        manifest: template.manifest,
+        manifest: JSON.parse(
+            replaceTemplateTokens(template.manifestSource, params),
+        ),
         files: await Promise.all(
             relativePaths.map(async (relativePath) => {
                 const sourcePath = resolve(template.filesRoot, relativePath);
                 const renderedPath = stripTemplateSuffix(
-                    replaceTemplateTokens(relativePath, options.params ?? {}),
+                    replaceTemplateTokens(relativePath, params),
                 );
                 const renderedContent = replaceTemplateTokens(
                     await readFile(sourcePath, "utf8"),
-                    options.params ?? {},
+                    params,
                 );
 
                 return {
@@ -30,12 +33,18 @@ export async function instantiateTemplate(options) {
 
 export async function materializeTemplate(options) {
     const plan = await instantiateTemplate(options);
+    const filesWithAbsolutePaths = plan.files.map((file) => ({
+        file,
+        absolutePath: resolve(options.outputDir, file.path),
+    }));
 
-    for (const file of plan.files) {
-        const absolutePath = resolve(options.outputDir, file.path);
+    for (const { file, absolutePath } of filesWithAbsolutePaths) {
         if (typeof options.beforeWrite === "function") {
             await options.beforeWrite(absolutePath, file);
         }
+    }
+
+    for (const { file, absolutePath } of filesWithAbsolutePaths) {
         await mkdir(dirname(absolutePath), { recursive: true });
         await writeFile(absolutePath, file.content, "utf8");
     }
@@ -50,7 +59,7 @@ async function collectTemplateFiles(root, current = root) {
     for (const entry of entries) {
         const absolutePath = resolve(current, entry.name);
         if (entry.isDirectory()) {
-            files.push(...await collectTemplateFiles(root, absolutePath));
+            files.push(...(await collectTemplateFiles(root, absolutePath)));
             continue;
         }
 

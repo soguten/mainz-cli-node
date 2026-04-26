@@ -1,36 +1,38 @@
 {
-    "name": "@mainzjs/cli-node",
-    "version": "0.1.0-alpha.38",
-    "description": "Node/npm wrapper for the Mainz CLI",
-    "type": "module",
-    "repository": {
-        "type": "git",
-        "url": "git+https://github.com/soguten/mainz-cli-node.git"
-    },
-    "publishConfig": {
-        "access": "public"
-    },
-    "bin": {
-        "mainz": "bin/mainz.js"
-    },
-    "engines": {
-        "node": ">=20.19.0"
-    },
-    "files": [
-        "bin",
-        "README.md",
-        "src/cli/dev.js",
-        "src/cli/main.js",
-        "src/cli/project-config.js",
-        "src/templates/index.js",
-        "src/templates/load-template.js",
-        "src/templates/materialize-template.js",
-        "templates"
-    ],
-    "scripts": {
-        "smoke": "node ./bin/mainz.js --help",
-        "test": "npm run test:templates && npm run test:cli",
-        "test:templates": "node --test ./src/templates/materialize-template.test.js",
-        "test:cli": "node --test ./src/cli/main.test.js"
-    }
+  "name": "@mainzjs/cli-node",
+  "version": "0.1.0-alpha.39",
+  "description": "Node/npm Mainz CLI",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/soguten/mainz-cli-node.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "bin": {
+    "mainz": "bin/mainz.js",
+    "mainz-cli-node": "bin/mainz.js"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "files": [
+    "bin",
+    "README.md",
+    "src/cli/dev.js",
+    "src/cli/main.js",
+    "src/cli/project-config.js",
+    "src/templates/index.js",
+    "src/templates/load-template.js",
+    "src/templates/materialize-template.js",
+    "templates"
+  ],
+  "scripts": {
+    "smoke": "node ./bin/mainz.js --help",
+    "sync:templates": "node ./scripts/sync-templates.mjs",
+    "test": "npm run test:templates && npm run test:cli",
+    "test:templates": "node --test ./src/templates/materialize-template.test.js",
+    "test:cli": "node --test ./src/cli/main.test.js"
+  }
 }

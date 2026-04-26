@@ -28,6 +28,9 @@ Install the current alpha globally:
 npm install -g @mainzjs/cli-node@alpha
 ```
 
+This registers both `mainz` and `mainz-cli-node`. The explicit name is a fast-path delegation
+target; other CLIs can also fall back to `npx -y @mainzjs/cli-node@alpha ...`.
+
 Initialize a new Node project:
 
 ```bash

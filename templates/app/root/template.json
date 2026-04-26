@@ -1,4 +1,11 @@
 {
-    "kind": "app",
-    "name": "root"
+  "kind": "app",
+  "name": "root",
+  "target": {
+    "name": "{{appName}}",
+    "rootDir": "{{rootDir}}",
+    "appFile": "{{rootDir}}/src/app.ts",
+    "appId": "{{appId}}",
+    "outDir": "{{outDir}}"
+  }
 }

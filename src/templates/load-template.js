@@ -11,7 +11,8 @@ export function resolveBuiltInTemplateRoot(kind, name) {
 
 export async function loadTemplate(templateRoot) {
     const manifestPath = resolve(templateRoot, "template.json");
-    const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+    const manifestSource = await readFile(manifestPath, "utf8");
+    const manifest = JSON.parse(manifestSource);
 
     if (!manifest.kind || !manifest.name) {
         throw new Error(`Invalid template manifest at "${manifestPath}".`);
@@ -19,6 +20,7 @@ export async function loadTemplate(templateRoot) {
 
     return {
         manifest,
+        manifestSource,
         root: templateRoot,
         filesRoot: resolve(templateRoot, "files"),
     };

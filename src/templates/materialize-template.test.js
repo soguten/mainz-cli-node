@@ -18,10 +18,12 @@ test("templates: should instantiate the built-in empty project template", async 
 
     assert.equal(plan.manifest.kind, "project");
     assert.equal(plan.manifest.name, "empty-node");
-    assert.deepEqual(
-        plan.files.map((file) => file.path).sort(),
-        [".npmrc", "mainz.config.ts", "package.json", "tsconfig.json"],
-    );
+    assert.deepEqual(plan.files.map((file) => file.path).sort(), [
+        ".npmrc",
+        "mainz.config.ts",
+        "package.json",
+        "tsconfig.json",
+    ]);
 
     const config = plan.files.find((file) => file.path === "mainz.config.ts");
     assert.ok(config);
@@ -38,7 +40,9 @@ test("templates: should instantiate the built-in empty project template", async 
 });
 
 test("templates: should materialize the built-in empty project template to disk", async () => {
-    const outputDir = await mkdtemp(resolve(tmpdir(), "mainz-cli-node-template-"));
+    const outputDir = await mkdtemp(
+        resolve(tmpdir(), "mainz-cli-node-template-"),
+    );
 
     try {
         await materializeTemplate({
@@ -50,9 +54,54 @@ test("templates: should materialize the built-in empty project template to disk"
             },
         });
 
-        const packageJson = await readFile(resolve(outputDir, "package.json"), "utf8");
+        const packageJson = await readFile(
+            resolve(outputDir, "package.json"),
+            "utf8",
+        );
         assert.match(packageJson, /"mainz-app"/);
-        assert.match(packageJson, /"mainz": "npm:@jsr\/mainz__mainz@0.1.0-alpha.33"/);
+        assert.match(
+            packageJson,
+            /"mainz": "npm:@jsr\/mainz__mainz@0.1.0-alpha.33"/,
+        );
+    } finally {
+        await rm(outputDir, { recursive: true, force: true });
+    }
+});
+
+test("templates: should preflight every destination before writing any project files", async () => {
+    const outputDir = await mkdtemp(
+        resolve(tmpdir(), "mainz-cli-node-template-"),
+    );
+
+    try {
+        await assert.rejects(
+            materializeTemplate({
+                templateRoot: resolveBuiltInTemplateRoot(
+                    "project",
+                    "empty-node",
+                ),
+                outputDir,
+                params: {
+                    mainzSpecifier: "npm:@jsr/mainz__mainz@0.1.0-alpha.33",
+                    projectName: "mainz-app",
+                },
+                async beforeWrite(absolutePath) {
+                    if (absolutePath.endsWith("mainz.config.ts")) {
+                        throw new Error("Refusing to overwrite existing file");
+                    }
+                },
+            }),
+            /Refusing to overwrite existing file/,
+        );
+
+        await assert.rejects(
+            readFile(resolve(outputDir, "package.json"), "utf8"),
+            /ENOENT/,
+        );
+        await assert.rejects(
+            readFile(resolve(outputDir, "mainz.config.ts"), "utf8"),
+            /ENOENT/,
+        );
     } finally {
         await rm(outputDir, { recursive: true, force: true });
     }
@@ -73,10 +122,10 @@ test("templates: should instantiate the built-in empty deno project template", a
 
     assert.equal(plan.manifest.kind, "project");
     assert.equal(plan.manifest.name, "empty-deno");
-    assert.deepEqual(
-        plan.files.map((file) => file.path).sort(),
-        ["deno.json", "mainz.config.ts"],
-    );
+    assert.deepEqual(plan.files.map((file) => file.path).sort(), [
+        "deno.json",
+        "mainz.config.ts",
+    ]);
 
     const config = plan.files.find((file) => file.path === "mainz.config.ts");
     assert.ok(config);
@@ -85,4 +134,28 @@ test("templates: should instantiate the built-in empty deno project template", a
     const denoConfig = plan.files.find((file) => file.path === "deno.json");
     assert.ok(denoConfig);
     assert.match(denoConfig.content, /jsr:@mainz\/cli-deno@0.1.0-alpha.33 dev/);
+});
+
+test("templates: should render target metadata from the built-in routed app template", async () => {
+    const templateRoot = resolveBuiltInTemplateRoot("app", "routed");
+    const plan = await instantiateTemplate({
+        templateRoot,
+        params: {
+            appName: "site",
+            appId: "site",
+            appNavigation: "enhanced-mpa",
+            appTitle: "site",
+            customElementPrefix: "x-mainz-site",
+            rootDir: "./site",
+            outDir: "dist/site",
+        },
+    });
+
+    assert.deepEqual(plan.manifest.target, {
+        name: "site",
+        rootDir: "./site",
+        appFile: "./site/src/app.ts",
+        appId: "site",
+        outDir: "dist/site",
+    });
 });
