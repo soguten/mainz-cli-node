@@ -1670,7 +1670,7 @@ async function prepareDenoAppWorkspaceUpdates(dependencies, rootDir) {
     throw new Error(`Expected "imports" in ${appDenoJsonPath} to be an object.`);
   }
 
-  const workspacePath = renderWorkspacePath(rootDir);
+  const workspacePath = renderDenoWorkspacePath(rootDir);
   const nextWorkspace = appendUniqueString(workspace ?? [], workspacePath);
   const nextImports = { ...(imports ?? {}) };
   for (const dependency of dependencies) {
@@ -1778,7 +1778,7 @@ async function prepareNodeAppWorkspaceUpdates(dependencies, appName, rootDir) {
     path: packageJsonPath,
     content: `${JSON.stringify({
       ...packageJson,
-      workspaces: appendUniqueString(workspaces ?? [], renderWorkspacePath(rootDir)),
+      workspaces: appendUniqueString(workspaces ?? [], renderNodeWorkspacePath(rootDir)),
     }, null, 4)}\n`,
   }, {
     path: appPackageJsonPath,
@@ -1812,7 +1812,7 @@ async function readJsonObjectFile(path, missingMessage) {
   return parsed;
 }
 
-function renderWorkspacePath(rootDir) {
+function renderDenoWorkspacePath(rootDir) {
   const relativePath = relative(process.cwd(), resolve(process.cwd(), rootDir)).replaceAll(
     "\\",
     "/",
@@ -1828,8 +1828,20 @@ function renderWorkspacePath(rootDir) {
   return relativePath.startsWith("./") ? relativePath : `./${relativePath}`;
 }
 
+function renderNodeWorkspacePath(rootDir) {
+  const relativePath = relative(process.cwd(), resolve(process.cwd(), rootDir)).replaceAll(
+    "\\",
+    "/",
+  );
+  if (!relativePath || relativePath === ".") {
+    return ".";
+  }
+
+  return relativePath;
+}
+
 function removeWorkspacePath(values, rootDir) {
-  const workspacePath = normalizeWorkspacePath(renderWorkspacePath(rootDir));
+  const workspacePath = normalizeWorkspacePath(renderDenoWorkspacePath(rootDir));
   return values.filter((value) => normalizeWorkspacePath(value) !== workspacePath);
 }
 

@@ -150,7 +150,7 @@ test("cli: init should create a starter node project", async () => {
         const packageJson = JSON.parse(
             await readFile(resolve(cwd, "demo", "package.json"), "utf8"),
         );
-        assert.deepEqual(packageJson.workspaces, ["./app"]);
+        assert.deepEqual(packageJson.workspaces, ["app"]);
 
         const appPackageJson = JSON.parse(
             await readFile(resolve(cwd, "demo", "app", "package.json"), "utf8"),
@@ -409,7 +409,7 @@ test("cli: app create should scaffold a routed app and register the target", asy
         const packageJson = JSON.parse(
             await readFile(resolve(cwd, "package.json"), "utf8"),
         );
-        assert.deepEqual(packageJson.workspaces, ["./site"]);
+        assert.deepEqual(packageJson.workspaces, ["site"]);
 
         const appPackageJson = JSON.parse(
             await readFile(resolve(cwd, "site", "package.json"), "utf8"),
@@ -516,7 +516,7 @@ test("cli: app create should apply template npm dependencies to node app workspa
             await readFile(resolve(cwd, "package.json"), "utf8"),
         );
         assert.equal(packageJson.dependencies["chart.js"], undefined);
-        assert.deepEqual(packageJson.workspaces, ["./analytics"]);
+        assert.deepEqual(packageJson.workspaces, ["analytics"]);
 
         const appPackageJson = JSON.parse(
             await readFile(resolve(cwd, "analytics", "package.json"), "utf8"),
@@ -765,7 +765,7 @@ test("cli: app remove should unregister only the selected target", async () => {
         const packageJson = JSON.parse(
             await readFile(resolve(cwd, "package.json"), "utf8"),
         );
-        assert.deepEqual(packageJson.workspaces, ["./docs"]);
+        assert.deepEqual(packageJson.workspaces, ["docs"]);
 
         const appFile = await stat(resolve(cwd, "site", "src", "app.ts"));
         assert.equal(appFile.isFile(), true);

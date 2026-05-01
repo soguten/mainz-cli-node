@@ -16,6 +16,6 @@
         "vite": "^7.3.1"
     },
     "workspaces": [
-        "./app"
+        "app"
     ]
 }
