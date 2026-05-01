@@ -19,9 +19,8 @@ target; other CLIs can also fall back to `npx -y @mainzjs/cli-node@alpha ...`.
 Initialize a new Node project:
 
 ```bash
-mkdir my-mainz-app
+mainz init my-mainz-app
 cd my-mainz-app
-mainz init
 npm install
 ```
 
@@ -32,13 +31,31 @@ mainz app create site
 mainz dev --target site
 ```
 
+Or start from a runnable starter project:
+
+```bash
+mainz init my-mainz-app --template starter
+cd my-mainz-app
+npm install
+mainz dev --target app
+```
+
 Initialize a Deno project from the same Node-hosted CLI:
 
 ```bash
-mkdir my-mainz-deno-app
-cd my-mainz-deno-app
-mainz init --runtime deno
+mainz init my-mainz-deno-app --runtime deno
 ```
+
+`mainz app create <name>` uses the default routed scaffold. Use `--type root` for the default
+root-mounted scaffold, or `--template <name|source>` for an explicit app template or template
+source. `--type` and `--template` are mutually exclusive.
+
+`--template` also accepts template sources outside the packaged catalog, including local paths,
+absolute paths, `file://` URLs, and HTTP template sources.
+
+Some app templates can declare runtime compatibility and dependencies. For example,
+`mainz app create analytics --template dashboard` creates a routed dashboard app and adds Recharts
+to the project manifest for the current runtime.
 
 ## Development
 
@@ -66,7 +83,7 @@ node ./bin/mainz.js dev --target site
 Create a new Deno project from the same Node-hosted CLI:
 
 ```bash
-node ./bin/mainz.js init --runtime deno --mainz jsr:@mainz/mainz@0.1.0-alpha.36
+node ./bin/mainz.js init my-deno-app --runtime deno --mainz jsr:@mainz/mainz@0.1.0-alpha.36
 ```
 
 Run the template prototype tests:

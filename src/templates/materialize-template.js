@@ -1,10 +1,15 @@
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, relative, resolve } from "node:path";
-import { loadTemplate } from "./load-template.js";
+import { loadRemoteTemplate, loadTemplate } from "./load-template.js";
 
 export async function instantiateTemplate(options) {
-    const template = await loadTemplate(options.templateRoot);
-    const relativePaths = await collectTemplateFiles(template.filesRoot);
+    const template = options.templateUrl
+        ? await loadRemoteTemplate(options.templateUrl)
+        : await loadTemplate(resolveRequiredTemplateRoot(options.templateRoot));
+    const remoteFiles = "files" in template ? template.files : undefined;
+    const relativePaths = remoteFiles
+        ? remoteFiles.map((file) => file.path)
+        : await collectTemplateFiles(template.filesRoot);
     const params = options.params ?? {};
 
     return {
@@ -14,11 +19,12 @@ export async function instantiateTemplate(options) {
         files: await Promise.all(
             relativePaths.map(async (relativePath) => {
                 const sourcePath = resolve(template.filesRoot, relativePath);
+                const remoteFile = remoteFiles?.find((file) => file.path === relativePath);
                 const renderedPath = stripTemplateSuffix(
                     replaceTemplateTokens(relativePath, params),
                 );
                 const renderedContent = replaceTemplateTokens(
-                    await readFile(sourcePath, "utf8"),
+                    remoteFile ? remoteFile.content : await readFile(sourcePath, "utf8"),
                     params,
                 );
 
@@ -31,8 +37,27 @@ export async function instantiateTemplate(options) {
     };
 }
 
+function resolveRequiredTemplateRoot(templateRoot) {
+    if (!templateRoot) {
+        throw new Error("Template root is required for built-in and local templates.");
+    }
+
+    return templateRoot;
+}
+
 export async function materializeTemplate(options) {
     const plan = await instantiateTemplate(options);
+    await materializeTemplatePlan({
+        plan,
+        outputDir: options.outputDir,
+        beforeWrite: options.beforeWrite,
+    });
+
+    return plan;
+}
+
+export async function materializeTemplatePlan(options) {
+    const plan = options.plan;
     const filesWithAbsolutePaths = plan.files.map((file) => ({
         file,
         absolutePath: resolve(options.outputDir, file.path),

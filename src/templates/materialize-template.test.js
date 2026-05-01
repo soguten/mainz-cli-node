@@ -7,7 +7,7 @@ import { instantiateTemplate, materializeTemplate } from "./index.js";
 import { resolveBuiltInTemplateRoot } from "./load-template.js";
 
 test("templates: should instantiate the built-in empty project template", async () => {
-    const templateRoot = resolveBuiltInTemplateRoot("project", "empty-node");
+    const templateRoot = resolveBuiltInTemplateRoot("project", "node/empty");
     const plan = await instantiateTemplate({
         templateRoot,
         params: {
@@ -17,7 +17,7 @@ test("templates: should instantiate the built-in empty project template", async 
     });
 
     assert.equal(plan.manifest.kind, "project");
-    assert.equal(plan.manifest.name, "empty-node");
+    assert.equal(plan.manifest.name, "empty");
     assert.deepEqual(plan.files.map((file) => file.path).sort(), [
         ".npmrc",
         "mainz.config.ts",
@@ -46,7 +46,7 @@ test("templates: should materialize the built-in empty project template to disk"
 
     try {
         await materializeTemplate({
-            templateRoot: resolveBuiltInTemplateRoot("project", "empty-node"),
+            templateRoot: resolveBuiltInTemplateRoot("project", "node/empty"),
             outputDir,
             params: {
                 mainzSpecifier: "npm:@jsr/mainz__mainz@0.1.0-alpha.33",
@@ -78,7 +78,7 @@ test("templates: should preflight every destination before writing any project f
             materializeTemplate({
                 templateRoot: resolveBuiltInTemplateRoot(
                     "project",
-                    "empty-node",
+                    "node/empty",
                 ),
                 outputDir,
                 params: {
@@ -108,7 +108,7 @@ test("templates: should preflight every destination before writing any project f
 });
 
 test("templates: should instantiate the built-in empty deno project template", async () => {
-    const templateRoot = resolveBuiltInTemplateRoot("project", "empty-deno");
+    const templateRoot = resolveBuiltInTemplateRoot("project", "deno/empty");
     const plan = await instantiateTemplate({
         templateRoot,
         params: {
@@ -121,7 +121,7 @@ test("templates: should instantiate the built-in empty deno project template", a
     });
 
     assert.equal(plan.manifest.kind, "project");
-    assert.equal(plan.manifest.name, "empty-deno");
+    assert.equal(plan.manifest.name, "empty");
     assert.deepEqual(plan.files.map((file) => file.path).sort(), [
         "deno.json",
         "mainz.config.ts",
@@ -136,8 +136,58 @@ test("templates: should instantiate the built-in empty deno project template", a
     assert.match(denoConfig.content, /jsr:@mainz\/cli-deno@0.1.0-alpha.33 dev/);
 });
 
-test("templates: should render target metadata from the built-in routed app template", async () => {
-    const templateRoot = resolveBuiltInTemplateRoot("app", "routed");
+test("templates: should instantiate the built-in starter node project template", async () => {
+    const templateRoot = resolveBuiltInTemplateRoot("project", "node/starter");
+    const plan = await instantiateTemplate({
+        templateRoot,
+        params: {
+            mainzSpecifier: "npm:@jsr/mainz__mainz@0.1.0-alpha.33",
+            mainzCliSpecifier: "npm:@jsr/mainz__mainz@0.1.0-alpha.33",
+            mainzSubpathPrefix: "npm:@jsr/mainz__mainz@0.1.0-alpha.33/",
+            denoConfigPath: "deno.json",
+            projectName: "mainz-app",
+            appName: "app",
+            appId: "app",
+            appNavigation: "enhanced-mpa",
+            appTitle: "mainz-app",
+            customElementPrefix: "x-mainz-app",
+            rootDir: "./app",
+            outDir: "dist/app",
+        },
+    });
+
+    assert.equal(plan.manifest.kind, "project");
+    assert.equal(plan.manifest.name, "starter");
+    const files = new Map(
+        plan.files.map((file) => [file.path.replaceAll("\\", "/"), file]),
+    );
+    assert.ok(files.get("app/src/components/Counter.tsx"));
+    assert.ok(files.get("app/package.json"));
+    assert.deepEqual([...files.keys()].sort(), [
+        ".npmrc",
+        "app/index.html",
+        "app/package.json",
+        "app/src/app.ts",
+        "app/src/components/Counter.tsx",
+        "app/src/main.tsx",
+        "app/src/pages/Home.page.tsx",
+        "app/src/pages/NotFound.page.tsx",
+        "mainz.config.ts",
+        "package.json",
+        "tsconfig.json",
+    ]);
+
+    const homePage = files.get("app/src/pages/Home.page.tsx");
+    assert.ok(homePage);
+    assert.match(homePage.content, /<Counter \/>/);
+
+    const counter = files.get("app/src/components/Counter.tsx");
+    assert.ok(counter);
+    assert.equal(counter.content.includes("@CustomElement"), false);
+});
+
+test("templates: should render target metadata from the built-in default-routed app template", async () => {
+    const templateRoot = resolveBuiltInTemplateRoot("app", "default-routed");
     const plan = await instantiateTemplate({
         templateRoot,
         params: {
@@ -158,4 +208,39 @@ test("templates: should render target metadata from the built-in routed app temp
         appId: "site",
         outDir: "dist/site",
     });
+});
+
+test("templates: should instantiate the built-in chart app template", async () => {
+    const templateRoot = resolveBuiltInTemplateRoot("app", "chart");
+    const plan = await instantiateTemplate({
+        templateRoot,
+        params: {
+            appName: "analytics",
+            appId: "analytics",
+            appNavigation: "enhanced-mpa",
+            appTitle: "analytics",
+            customElementPrefix: "x-mainz-analytics",
+            rootDir: "./analytics",
+            outDir: "dist/analytics",
+        },
+    });
+
+    assert.equal(plan.manifest.name, "chart");
+    assert.deepEqual(plan.manifest.dependencies, [
+        {
+            specifier: "chart.js",
+            registry: "npm",
+            package: "chart.js",
+            version: "^4.5.1",
+        },
+    ]);
+
+    const files = new Map(
+        plan.files.map((file) => [file.path.replaceAll("\\", "/"), file]),
+    );
+    assert.ok(files.get("src/components/ChartWidget.tsx"));
+    assert.match(
+        files.get("src/components/ChartWidget.tsx").content,
+        /from "chart\.js\/auto"/,
+    );
 });

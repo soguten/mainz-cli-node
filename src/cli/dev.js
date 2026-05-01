@@ -10,6 +10,18 @@ import process from "node:process";
 import { extname, isAbsolute, resolve } from "node:path";
 import { loadProjectConfig, resolveRequiredTarget } from "./project-config.js";
 
+const MAINZ_PUBLIC_ENTRYPOINTS = [
+    { specifier: "mainz", sourcePath: "mod.ts" },
+    { specifier: "mainz/jsx-runtime", sourcePath: "src/jsx-runtime.ts" },
+    { specifier: "mainz/jsx-dev-runtime", sourcePath: "src/jsx-dev-runtime.ts" },
+    { specifier: "mainz/config", sourcePath: "src/public/config.ts" },
+    { specifier: "mainz/i18n", sourcePath: "src/public/i18n.ts" },
+    { specifier: "mainz/di", sourcePath: "src/public/di.ts" },
+    { specifier: "mainz/http", sourcePath: "src/public/http.ts" },
+    { specifier: "mainz/http/testing", sourcePath: "src/public/http-testing.ts" },
+    { specifier: "mainz/testing", sourcePath: "src/public/testing.ts" },
+];
+
 export async function runDevCommand(args) {
     const options = parseDevOptions(args);
     const plan = await resolveNodeDevServerPlan(options);
@@ -69,7 +81,10 @@ export async function resolveNodeDevServerPlan(options) {
             outDir: normalizePathSlashes(resolve(cwd, target.outDir)),
             appType: targetMetadata.navigationMode === "spa" ? "spa" : "mpa",
             base: "/",
-            aliases: resolveTargetAliases(cwd, target),
+            aliases: [
+                ...await resolveFrameworkAliases(cwd),
+                ...resolveTargetAliases(cwd, target),
+            ],
             define: {
                 __MAINZ_RENDER_MODE__: JSON.stringify(targetMetadata.renderMode),
                 __MAINZ_NAVIGATION_MODE__: JSON.stringify(targetMetadata.navigationMode),
@@ -218,6 +233,24 @@ async function removeLegacyViteWorkspaces(cwd) {
     }
 }
 
+async function resolveFrameworkAliases(cwd) {
+    const aliases = [];
+
+    for (const entrypoint of MAINZ_PUBLIC_ENTRYPOINTS) {
+        const replacement = normalizePathSlashes(resolve(cwd, entrypoint.sourcePath));
+        if (!await pathExists(replacement)) {
+            continue;
+        }
+
+        aliases.push({
+            find: entrypoint.specifier,
+            replacement,
+        });
+    }
+
+    return aliases.sort((a, b) => b.find.length - a.find.length);
+}
+
 function resolveTargetAliases(cwd, target) {
     const alias = target.vite?.alias;
     if (!alias) {
@@ -235,6 +268,15 @@ function resolveTargetAliases(cwd, target) {
         find,
         replacement: normalizeAliasReplacement(cwd, replacement),
     }));
+}
+
+async function pathExists(path) {
+    try {
+        await readFile(path);
+        return true;
+    } catch {
+        return false;
+    }
 }
 
 function normalizeAliasReplacement(cwd, replacement) {

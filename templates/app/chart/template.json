@@ -1,0 +1,23 @@
+{
+    "kind": "app",
+    "name": "chart",
+    "appType": "routed",
+    "compatibility": {
+        "runtimes": ["deno", "node"]
+    },
+    "dependencies": [
+        {
+            "specifier": "chart.js",
+            "registry": "npm",
+            "package": "chart.js",
+            "version": "^4.5.1"
+        }
+    ],
+    "target": {
+        "name": "{{appName}}",
+        "rootDir": "{{rootDir}}",
+        "appFile": "{{rootDir}}/src/app.ts",
+        "appId": "{{appId}}",
+        "outDir": "{{outDir}}"
+    }
+}
