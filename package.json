@@ -1,6 +1,6 @@
 {
   "name": "@mainzjs/cli-node",
-  "version": "0.1.0-alpha.39",
+  "version": "0.1.0-alpha.40",
   "description": "Node/npm Mainz CLI",
   "type": "module",
   "repository": {
