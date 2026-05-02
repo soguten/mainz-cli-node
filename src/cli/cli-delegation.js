@@ -2,9 +2,10 @@ import { spawn } from "node:child_process";
 import { access, readFile } from "node:fs/promises";
 import process from "node:process";
 import { delimiter, join, resolve } from "node:path";
+import { resolveHostedCliPackageSpecifier } from "./package-specifiers.js";
 
 export async function delegateToCli(cli, args, helpTopic = "main") {
-    const candidates = resolveCliDelegationCandidates(cli, args);
+    const candidates = await resolveCliDelegationCandidates(cli, args);
 
     for (let index = 0; index < candidates.length; index += 1) {
         const candidate = candidates[index];
@@ -56,7 +57,7 @@ export async function delegateToDenoProject(cwd, args, helpTopic = "dev") {
     }
 }
 
-function resolveCliDelegationCandidates(cli, args) {
+async function resolveCliDelegationCandidates(cli, args) {
     const explicit = {
         command: `mainz-cli-${cli}`,
         args,
@@ -68,7 +69,7 @@ function resolveCliDelegationCandidates(cli, args) {
             explicit,
             {
                 command: "deno",
-                args: ["run", "-A", "jsr:@mainz/cli-deno@alpha", ...args],
+                args: ["run", "-A", await resolveHostedCliPackageSpecifier("deno"), ...args],
             },
         ];
     }
@@ -78,7 +79,7 @@ function resolveCliDelegationCandidates(cli, args) {
             explicit,
             {
                 command: "bunx",
-                args: ["@mainzjs/cli-bun@alpha", ...args],
+                args: [await resolveHostedCliPackageSpecifier("bun"), ...args],
             },
         ];
     }
@@ -87,7 +88,7 @@ function resolveCliDelegationCandidates(cli, args) {
         explicit,
         {
             command: "npx",
-            args: ["-y", "@mainzjs/cli-node@alpha", ...args],
+            args: ["-y", await resolveHostedCliPackageSpecifier("node"), ...args],
         },
     ];
 }

@@ -15,6 +15,10 @@ import { createServer } from "node:http";
 import { gzipSync } from "node:zlib";
 import { main } from "./main.js";
 import {
+    resolveCurrentCliVersion,
+    resolveHostedCliPackageSpecifier,
+} from "./package-specifiers.js";
+import {
     prepareViteWorkspace,
     resolveNodeDevServerPlan,
     resolveViteDevInvocation,
@@ -322,6 +326,7 @@ test("cli: should fallback to the runtime runner when the explicit CLI executabl
         resolve(tmpdir(), "mainz-cli-node-runner-bin-"),
     );
     const markerPath = resolve(binDir, "delegated-runner.txt");
+    const denoCliSpecifier = await resolveHostedCliPackageSpecifier("deno");
 
     try {
         await writeFakeCliExecutable(binDir, "deno", markerPath, 9);
@@ -338,7 +343,7 @@ test("cli: should fallback to the runtime runner when the explicit CLI executabl
         assert.equal(exitCode, 9);
         assert.equal(
             (await readFile(markerPath, "utf8")).trim(),
-            "run -A jsr:@mainz/cli-deno@alpha init --runtime node",
+            `run -A ${denoCliSpecifier} init --runtime node`,
         );
     } finally {
         process.env.PATH = previousPath;
@@ -352,6 +357,7 @@ test("cli: dev should delegate deno-runtime projects to the deno-hosted CLI", as
     const cwd = await mkdtemp(resolve(tmpdir(), "mainz-cli-node-dev-deno-"));
     const binDir = await mkdtemp(resolve(tmpdir(), "mainz-cli-node-dev-bin-"));
     const markerPath = resolve(binDir, "delegated-dev.txt");
+    const configuredProjectCliSpecifier = "jsr:@mainz/cli-deno@0.1.0-alpha.33";
 
     try {
         process.chdir(cwd);
@@ -377,7 +383,7 @@ test("cli: dev should delegate deno-runtime projects to the deno-hosted CLI", as
         assert.equal(exitCode, 13);
         assert.equal(
             (await readFile(markerPath, "utf8")).trim(),
-            "run -A --config deno.json jsr:@mainz/cli-deno@0.1.0-alpha.33 dev --target app",
+            `run -A --config deno.json ${configuredProjectCliSpecifier} dev --target app`,
         );
     } finally {
         process.chdir(previousCwd);
@@ -393,6 +399,7 @@ test("cli: dev should delegate deno-runtime projects using the generated deno ta
     const cwd = await mkdtemp(resolve(tmpdir(), "mainz-cli-node-dev-deno-legacy-"));
     const binDir = await mkdtemp(resolve(tmpdir(), "mainz-cli-node-dev-legacy-bin-"));
     const markerPath = resolve(binDir, "delegated-dev-legacy.txt");
+    const configuredProjectCliSpecifier = "jsr:@mainz/cli-deno@0.1.0-alpha.33";
 
     try {
         process.chdir(cwd);
@@ -418,7 +425,7 @@ test("cli: dev should delegate deno-runtime projects using the generated deno ta
         assert.equal(exitCode, 14);
         assert.equal(
             (await readFile(markerPath, "utf8")).trim(),
-            "run -A --config deno.json jsr:@mainz/cli-deno@0.1.0-alpha.33 dev --target app",
+            `run -A --config deno.json ${configuredProjectCliSpecifier} dev --target app`,
         );
     } finally {
         process.chdir(previousCwd);

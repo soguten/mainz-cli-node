@@ -9,6 +9,11 @@ import {
 } from "node:path";
 import { fileURLToPath } from "node:url";
 import { delegateToCli } from "./cli-delegation.js";
+import {
+  renderGeneratedMainzCliSpecifier,
+  resolveDefaultMainzSpecifierForRuntime,
+  resolveHostedCliPackageSpecifier,
+} from "./package-specifiers.js";
 import { runDevCommand } from "./dev.js";
 import {
   instantiateTemplate,
@@ -109,7 +114,7 @@ async function runInitCommand(args) {
   const templateName = options.template ?? "empty";
   const templateSource = await resolveInitProjectTemplateSource(templateName, runtime);
   const mainzSpecifier =
-    options.mainzSpecifier ?? (await resolveDefaultMainzSpecifier(runtime));
+    options.mainzSpecifier ?? (await resolveDefaultMainzSpecifierForRuntime(runtime));
   const templateParams = {
     mainzSpecifier,
     projectName,
@@ -402,7 +407,7 @@ async function runWorkflowCommand(args) {
 
   const plan = await instantiateTemplate({
     templateRoot: workflowTemplateRoot,
-    params: renderGithubPagesWorkflowTemplateParams({
+    params: await renderGithubPagesWorkflowTemplateParams({
       branch: options.branch ?? "main",
       trigger: options.trigger ?? "push",
       targets: publishTargets,
@@ -874,25 +879,6 @@ function readOptionValue(option, value, helpTopic = "main") {
   }
 
   return value;
-}
-
-async function resolveDefaultMainzSpecifier(runtime = "node") {
-  const packageJsonPath = resolve(
-    fileURLToPath(new URL("../../package.json", import.meta.url)),
-  );
-  const packageJson = JSON.parse(await readFile(packageJsonPath, "utf8"));
-  const version = packageJson.version;
-  if (typeof version !== "string" || !version.trim()) {
-    throw new Error(
-      'Could not resolve the current "@mainzjs/cli-node" package version.',
-    );
-  }
-
-  if (runtime === "deno") {
-    return `jsr:@mainz/mainz@${version}`;
-  }
-
-  return `npm:@jsr/mainz__mainz@${version}`;
 }
 
 async function resolveInitProjectTemplateSource(template, runtime) {
@@ -2062,7 +2048,8 @@ function resolvePublishOutDir(target) {
   return `${normalizePathSlashes(outDir)}/ssg`;
 }
 
-function renderGithubPagesWorkflowTemplateParams(options) {
+async function renderGithubPagesWorkflowTemplateParams(options) {
+  const publishInfoCliSpecifier = await resolveHostedCliPackageSpecifier("deno");
   const triggerBlock = options.trigger === "manual"
     ? [
       "on:",
@@ -2084,7 +2071,7 @@ function renderGithubPagesWorkflowTemplateParams(options) {
   ).join("\n\n");
 
   const metadataCommands = options.targets.map((target) =>
-    `                  ${target.name}_metadata="$(deno run -A --config deno.json jsr:@mainz/cli-deno@alpha publish-info --target ${target.name} --profile gh-pages)"`
+    `                  ${target.name}_metadata="$(deno run -A --config deno.json ${publishInfoCliSpecifier} publish-info --target ${target.name} --profile gh-pages)"`
   ).join("\n");
 
   const metadataEchoes = options.targets.map((target) =>
@@ -2224,16 +2211,6 @@ function extractLeadingGlobalOptions(args) {
   }
 
   return { args: remaining, cli };
-}
-
-function renderGeneratedMainzCliSpecifier(mainzSpecifier) {
-  const trimmed = mainzSpecifier.trim().replace(/\/+$/, "");
-  const jsrMainzMatch = trimmed.match(/^jsr:@mainz\/mainz(@.+)?$/);
-  if (jsrMainzMatch) {
-    return `jsr:@mainz/cli-deno${jsrMainzMatch[1] ?? ""}`;
-  }
-
-  return trimmed;
 }
 
 function renderGeneratedMainzSubpathPrefix(mainzSpecifier) {
