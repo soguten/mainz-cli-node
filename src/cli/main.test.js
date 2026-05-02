@@ -15,6 +15,7 @@ import { createServer } from "node:http";
 import { gzipSync } from "node:zlib";
 import { main } from "./main.js";
 import {
+    resolveConfiguredCliHosts,
     resolveCurrentCliVersion,
     resolveHostedCliPackageSpecifier,
 } from "./package-specifiers.js";
@@ -87,6 +88,37 @@ test("cli: init should create a deno project when --runtime deno is passed after
         const denoConfig = await readFile(resolve(cwd, "deno.json"), "utf8");
         assert.match(denoConfig, /jsr:@mainz\/mainz@0.1.0-alpha.33/);
         assert.match(denoConfig, /jsr:@mainz\/cli-deno@0.1.0-alpha.33 dev/);
+    } finally {
+        process.chdir(previousCwd);
+        await rm(cwd, { recursive: true, force: true });
+    }
+});
+
+test("cli: init should use the configured host specifiers for deno projects by default", async () => {
+    const previousCwd = process.cwd();
+    const cwd = await mkdtemp(resolve(tmpdir(), "mainz-cli-node-init-deno-default-"));
+    const configuredHosts = await resolveConfiguredCliHosts();
+
+    try {
+        process.chdir(cwd);
+
+        const exitCode = await main([
+            "init",
+            "--runtime",
+            "deno",
+        ]);
+
+        assert.equal(exitCode, 0);
+
+        const denoConfig = await readFile(resolve(cwd, "deno.json"), "utf8");
+        assert.match(
+            denoConfig,
+            new RegExp(configuredHosts.framework.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+        );
+        assert.match(
+            denoConfig,
+            new RegExp(`${configuredHosts.cliDeno.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} dev`),
+        );
     } finally {
         process.chdir(previousCwd);
         await rm(cwd, { recursive: true, force: true });
