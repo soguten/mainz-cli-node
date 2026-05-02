@@ -1099,6 +1099,7 @@ test("cli: dev should build a Vite plan for the generated routed app", async () 
             /"__MAINZ_TARGET_NAME__": "\\"site\\""/,
         );
         assert.match(plan.viteConfigSource, /root: ".*\/site"/);
+        assert.match(plan.viteConfigSource, /cacheDir: ".*\/node_modules\/\.vite\/mainz\/site"/);
         assert.match(plan.viteConfigSource, /find: "mainz\/jsx-dev-runtime"/);
         assert.match(plan.viteConfigSource, /find: "mainz\/jsx-runtime"/);
         assert.match(plan.viteConfigSource, /find: "mainz\/http\/testing"/);

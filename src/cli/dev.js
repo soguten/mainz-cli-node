@@ -30,7 +30,11 @@ export async function runDevCommand(args) {
         `[mainz] Starting dev server for target "${plan.target.name}" using config ${plan.configPath}`,
     );
 
-    const workspace = await prepareViteWorkspace(plan.cwd, plan.target.name, plan.viteConfigSource);
+    const workspace = await prepareViteWorkspace(
+        plan.cwd,
+        plan.target.name,
+        plan.viteConfigSource,
+    );
 
     try {
         return await runViteDevServer({
@@ -79,6 +83,7 @@ export async function resolveNodeDevServerPlan(options) {
         viteConfigSource: renderGeneratedViteConfigModule({
             root: normalizePathSlashes(resolve(cwd, target.rootDir)),
             outDir: normalizePathSlashes(resolve(cwd, target.outDir)),
+            cacheDir: normalizePathSlashes(resolve(cwd, "node_modules", ".vite", "mainz", target.name)),
             appType: targetMetadata.navigationMode === "spa" ? "spa" : "mpa",
             base: "/",
             aliases: [
@@ -301,6 +306,7 @@ function renderGeneratedViteConfigModule(config) {
         `export default defineConfig({`,
         `    appType: ${JSON.stringify(config.appType)},`,
         `    base: ${JSON.stringify(config.base)},`,
+        `    cacheDir: ${JSON.stringify(config.cacheDir)},`,
         `    resolve: {`,
         `        alias: [`,
         ...aliases.map((alias) => `            ${alias},`),
