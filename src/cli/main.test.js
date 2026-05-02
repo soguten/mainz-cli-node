@@ -346,6 +346,44 @@ test("cli: should fallback to the runtime runner when the explicit CLI executabl
     }
 });
 
+test("cli: dev should delegate deno-runtime projects to the deno-hosted CLI", async () => {
+    const previousCwd = process.cwd();
+    const previousPath = process.env.PATH;
+    const cwd = await mkdtemp(resolve(tmpdir(), "mainz-cli-node-dev-deno-"));
+    const binDir = await mkdtemp(resolve(tmpdir(), "mainz-cli-node-dev-bin-"));
+    const markerPath = resolve(binDir, "delegated-dev.txt");
+
+    try {
+        process.chdir(cwd);
+        await writeFakeCliExecutable(binDir, "mainz-cli-deno", markerPath, 13);
+        process.env.PATH = `${binDir}${delimiter}${previousPath ?? ""}`;
+
+        await main([
+            "init",
+            "--template",
+            "starter",
+            "--runtime",
+            "deno",
+            "--mainz",
+            "jsr:@mainz/mainz@0.1.0-alpha.33",
+        ]);
+
+        const exitCode = await main([
+            "dev",
+            "--target",
+            "app",
+        ]);
+
+        assert.equal(exitCode, 13);
+        assert.equal((await readFile(markerPath, "utf8")).trim(), "dev --target app");
+    } finally {
+        process.chdir(previousCwd);
+        process.env.PATH = previousPath;
+        await rm(cwd, { recursive: true, force: true });
+        await rm(binDir, { recursive: true, force: true });
+    }
+});
+
 test("cli: should reject unsupported --cli values softly", async () => {
     const { exitCode, stderr } = await runMainWithCapturedOutput([
         "--cli",

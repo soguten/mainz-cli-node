@@ -1,16 +1,14 @@
 import { access, readdir, readFile, rm } from "node:fs/promises";
-import { spawn } from "node:child_process";
 import process from "node:process";
 import {
   basename,
-  delimiter,
   dirname,
   isAbsolute,
-  join,
   relative,
   resolve,
 } from "node:path";
 import { fileURLToPath } from "node:url";
+import { delegateToCli } from "./cli-delegation.js";
 import { runDevCommand } from "./dev.js";
 import {
   instantiateTemplate,
@@ -101,133 +99,6 @@ async function runCli(args) {
     `This package currently supports "init", "app", "profile", "workflow", and "dev".`,
     "main",
   );
-}
-
-async function delegateToCli(cli, args) {
-  const candidates = resolveCliDelegationCandidates(cli, args);
-
-  for (let index = 0; index < candidates.length; index += 1) {
-    const candidate = candidates[index];
-    if (
-      candidate.requiresPathLookup &&
-      !(await canResolveExecutable(candidate.command))
-    ) {
-      continue;
-    }
-
-    try {
-      return await runDelegatedCli(candidate.command, candidate.args);
-    } catch (error) {
-      if (error?.code === "ENOENT" && index < candidates.length - 1) {
-        continue;
-      }
-
-      if (error?.code === "ENOENT") {
-        throw new CliUsageError(
-          `Could not execute a ${cli}-hosted Mainz CLI. Install the required ${cli} runtime or install the ${cli}-hosted Mainz CLI globally.`,
-          "main",
-        );
-      }
-
-      throw error;
-    }
-  }
-
-  throw new CliUsageError(
-    `Could not resolve a ${cli}-hosted Mainz CLI delegation target.`,
-  );
-}
-
-function resolveCliDelegationCandidates(cli, args) {
-  const explicit = {
-    command: `mainz-cli-${cli}`,
-    args,
-    requiresPathLookup: true,
-  };
-
-  if (cli === "deno") {
-    return [
-      explicit,
-      {
-        command: "deno",
-        args: ["run", "-A", "jsr:@mainz/cli-deno@alpha", ...args],
-      },
-    ];
-  }
-
-  if (cli === "bun") {
-    return [
-      explicit,
-      {
-        command: "bunx",
-        args: ["@mainzjs/cli-bun@alpha", ...args],
-      },
-    ];
-  }
-
-  return [
-    explicit,
-    {
-      command: "npx",
-      args: ["-y", "@mainzjs/cli-node@alpha", ...args],
-    },
-  ];
-}
-
-async function canResolveExecutable(command) {
-  const pathValue = process.env.PATH ?? "";
-  const extensions =
-    process.platform === "win32"
-      ? (process.env.PATHEXT ?? ".COM;.EXE;.BAT;.CMD")
-        .split(";")
-        .filter(Boolean)
-      : [""];
-  const commandHasExtension = /\.[^\\/]+$/.test(command);
-
-  for (const directory of pathValue.split(delimiter).filter(Boolean)) {
-    const names =
-      process.platform === "win32" && !commandHasExtension
-        ? extensions.map((extension) => `${command}${extension.toLowerCase()}`)
-        : [command];
-
-    for (const name of names) {
-      try {
-        await access(join(directory, name));
-        return true;
-      } catch (error) {
-        if (error?.code !== "ENOENT") {
-          throw error;
-        }
-      }
-    }
-  }
-
-  return false;
-}
-
-async function runDelegatedCli(command, args) {
-  const invocation = resolveCliInvocation(command, args);
-
-  return await new Promise((resolvePromise, reject) => {
-    const child = spawn(invocation.command, invocation.args, {
-      cwd: process.cwd(),
-      stdio: "inherit",
-    });
-
-    child.once("error", reject);
-    child.once("exit", (code) => resolvePromise(code ?? 1));
-  });
-}
-
-function resolveCliInvocation(executable, args) {
-  if (process.platform !== "win32") {
-    return { command: executable, args };
-  }
-
-  return {
-    command: process.env.ComSpec ?? "cmd.exe",
-    args: ["/d", "/s", "/c", executable, ...args],
-  };
 }
 
 async function runInitCommand(args) {
@@ -2565,6 +2436,9 @@ function getHelpText(topic) {
       "  --host [host]    Expose the dev server host. When omitted, Vite uses its default.",
       "  --port <port>    Override the dev server port.",
       "  --config <path>  Mainz config path. Defaults to mainz.config.ts.",
+      "",
+      "Notes:",
+      "  Deno and Bun projects delegate to the matching installed Mainz CLI host.",
     ].join("\n");
   }
 
@@ -2635,7 +2509,8 @@ function getHelpText(topic) {
     "  --runtime <node|deno|bun>  Choose the runtime of the generated project.",
     "",
     "Notes:",
-    "  This package owns the Node-hosted init, app lifecycle, profile, workflow, and dev flows.",
+    "  This package owns the Node-hosted init, app lifecycle, profile, workflow, and Node-runtime dev flows.",
     '  Use "mainz init --runtime deno" to generate a Deno project from the Node CLI.',
+    "  Deno and Bun projects delegate dev to the matching installed Mainz CLI host.",
   ].join("\n");
 }

@@ -8,6 +8,7 @@ import {
 } from "node:fs/promises";
 import process from "node:process";
 import { extname, isAbsolute, resolve } from "node:path";
+import { delegateToCli } from "./cli-delegation.js";
 import { loadProjectConfig, resolveRequiredTarget } from "./project-config.js";
 
 const MAINZ_PUBLIC_ENTRYPOINTS = [
@@ -24,7 +25,20 @@ const MAINZ_PUBLIC_ENTRYPOINTS = [
 
 export async function runDevCommand(args) {
     const options = parseDevOptions(args);
-    const plan = await resolveNodeDevServerPlan(options);
+    const loadedConfig = await loadProjectConfig(options.configPath);
+    const projectRuntime = loadedConfig.config.runtime ?? "node";
+
+    if (options.runtime && options.runtime !== projectRuntime) {
+        throw new Error(
+            `Project runtime is "${projectRuntime}", but --runtime "${options.runtime}" was requested.`,
+        );
+    }
+
+    if (projectRuntime !== "node") {
+        return await delegateToCli(projectRuntime, ["dev", ...args], "dev");
+    }
+
+    const plan = await resolveNodeDevServerPlan(options, loadedConfig);
 
     console.log(
         `[mainz] Starting dev server for target "${plan.target.name}" using config ${plan.configPath}`,
@@ -64,9 +78,9 @@ export async function prepareViteWorkspace(cwd, targetName, viteConfigSource) {
     };
 }
 
-export async function resolveNodeDevServerPlan(options) {
+export async function resolveNodeDevServerPlan(options, loadedConfig = undefined) {
     const cwd = process.cwd();
-    const loadedConfig = await loadProjectConfig(options.configPath);
+    loadedConfig ??= await loadProjectConfig(options.configPath);
     if (loadedConfig.config.runtime && loadedConfig.config.runtime !== "node") {
         throw new Error(
             `This CLI package only supports runtime "node". Project runtime is "${loadedConfig.config.runtime}".`,
@@ -111,6 +125,7 @@ function parseDevOptions(args) {
         host: undefined,
         port: undefined,
         configPath: "mainz.config.ts",
+        runtime: undefined,
     };
 
     for (let index = 0; index < args.length; index += 1) {
@@ -154,12 +169,13 @@ function parseDevOptions(args) {
 
         if (current === "--runtime") {
             const runtime = readOptionValue(current, args[index + 1]);
-            if (runtime !== "node") {
+            if (runtime !== "node" && runtime !== "deno" && runtime !== "bun") {
                 throw new Error(
-                    `This CLI package only supports runtime "node". Received "${runtime}".`,
+                    `Unsupported runtime "${runtime}". Use "node", "deno", or "bun".`,
                 );
             }
 
+            options.runtime = runtime;
             index += 1;
             continue;
         }
