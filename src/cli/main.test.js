@@ -355,7 +355,7 @@ test("cli: dev should delegate deno-runtime projects to the deno-hosted CLI", as
 
     try {
         process.chdir(cwd);
-        await writeFakeCliExecutable(binDir, "mainz-cli-deno", markerPath, 13);
+        await writeFakeCliExecutable(binDir, "deno", markerPath, 13);
         process.env.PATH = `${binDir}${delimiter}${previousPath ?? ""}`;
 
         await main([
@@ -375,7 +375,51 @@ test("cli: dev should delegate deno-runtime projects to the deno-hosted CLI", as
         ]);
 
         assert.equal(exitCode, 13);
-        assert.equal((await readFile(markerPath, "utf8")).trim(), "dev --target app");
+        assert.equal(
+            (await readFile(markerPath, "utf8")).trim(),
+            "run -A --config deno.json jsr:@mainz/cli-deno@0.1.0-alpha.33 dev --target app",
+        );
+    } finally {
+        process.chdir(previousCwd);
+        process.env.PATH = previousPath;
+        await rm(cwd, { recursive: true, force: true });
+        await rm(binDir, { recursive: true, force: true });
+    }
+});
+
+test("cli: dev should delegate deno-runtime projects using the generated deno task format", async () => {
+    const previousCwd = process.cwd();
+    const previousPath = process.env.PATH;
+    const cwd = await mkdtemp(resolve(tmpdir(), "mainz-cli-node-dev-deno-legacy-"));
+    const binDir = await mkdtemp(resolve(tmpdir(), "mainz-cli-node-dev-legacy-bin-"));
+    const markerPath = resolve(binDir, "delegated-dev-legacy.txt");
+
+    try {
+        process.chdir(cwd);
+        await writeFakeCliExecutable(binDir, "deno", markerPath, 14);
+        process.env.PATH = `${binDir}${delimiter}${previousPath ?? ""}`;
+
+        await main([
+            "init",
+            "--template",
+            "starter",
+            "--runtime",
+            "deno",
+            "--mainz",
+            "jsr:@mainz/mainz@0.1.0-alpha.33",
+        ]);
+
+        const exitCode = await main([
+            "dev",
+            "--target",
+            "app",
+        ]);
+
+        assert.equal(exitCode, 14);
+        assert.equal(
+            (await readFile(markerPath, "utf8")).trim(),
+            "run -A --config deno.json jsr:@mainz/cli-deno@0.1.0-alpha.33 dev --target app",
+        );
     } finally {
         process.chdir(previousCwd);
         process.env.PATH = previousPath;

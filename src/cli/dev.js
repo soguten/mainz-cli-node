@@ -8,7 +8,7 @@ import {
 } from "node:fs/promises";
 import process from "node:process";
 import { extname, isAbsolute, resolve } from "node:path";
-import { delegateToCli } from "./cli-delegation.js";
+import { delegateToCli, delegateToDenoProject } from "./cli-delegation.js";
 import { loadProjectConfig, resolveRequiredTarget } from "./project-config.js";
 
 const MAINZ_PUBLIC_ENTRYPOINTS = [
@@ -35,6 +35,9 @@ export async function runDevCommand(args) {
     }
 
     if (projectRuntime !== "node") {
+        if (projectRuntime === "deno") {
+            return await delegateToDenoProject(process.cwd(), ["dev", ...args], "dev");
+        }
         return await delegateToCli(projectRuntime, ["dev", ...args], "dev");
     }
 
