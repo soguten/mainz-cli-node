@@ -1,6 +1,6 @@
 {
   "name": "@mainzjs/cli-node",
-  "version": "0.1.0-alpha.43",
+  "version": "0.1.0-alpha.44",
   "description": "Node/npm Mainz CLI",
   "type": "module",
   "repository": {
@@ -21,7 +21,7 @@
     "framework": "jsr:@mainz/mainz@0.1.0-alpha.43",
     "cliDeno": "jsr:@mainz/cli-deno@0.1.0-alpha.43",
     "cliBun": "@mainzjs/cli-bun@0.1.0-alpha.43",
-    "cliNode": "@mainzjs/cli-node@0.1.0-alpha.43"
+    "cliNode": "@mainzjs/cli-node@0.1.0-alpha.44"
   },
   "files": [
     "bin",
