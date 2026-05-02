@@ -1,6 +1,6 @@
 {
   "name": "@mainzjs/cli-node",
-  "version": "0.1.0-alpha.45",
+  "version": "0.1.0-alpha.46",
   "description": "Node/npm Mainz CLI",
   "type": "module",
   "repository": {
@@ -18,10 +18,10 @@
     "node": ">=20.19.0"
   },
   "mainzCliHosts": {
-    "framework": "jsr:@mainz/mainz@0.1.0-alpha.45",
-    "cliDeno": "jsr:@mainz/cli-deno@0.1.0-alpha.45",
-    "cliBun": "@mainzjs/cli-bun@0.1.0-alpha.45",
-    "cliNode": "@mainzjs/cli-node@0.1.0-alpha.45"
+    "framework": "jsr:@mainz/mainz@0.1.0-alpha.46",
+    "cliDeno": "jsr:@mainz/cli-deno@0.1.0-alpha.46",
+    "cliBun": "@mainzjs/cli-bun@0.1.0-alpha.46",
+    "cliNode": "@mainzjs/cli-node@0.1.0-alpha.46"
   },
   "files": [
     "bin",
